@@ -6,6 +6,13 @@ ENV PATH="$PATH:/bin/bash" \
 # FFMPEG
 RUN apk add --update ffmpeg bash curl make
 
+# https://stackoverflow.com/a/65420450
+ARG cert_location=/usr/local/share/ca-certificates
+RUN apk add --update --upgrade ca-certificates openssl && \
+openssl s_client -showcerts -connect github.com:443 </dev/null 2>/dev/null|openssl x509 -outform PEM > ${cert_location}/github.crt && \
+openssl s_client -showcerts -connect proxy.golang.org:443 </dev/null 2>/dev/null|openssl x509 -outform PEM >  ${cert_location}/proxy.golang.crt && \
+update-ca-certificates
+
 # Install Bento
 WORKDIR /tmp/bento4
 ENV BENTO4_BASE_URL="http://zebulon.bok.net/Bento4/source/" \
