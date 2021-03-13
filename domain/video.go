@@ -31,3 +31,7 @@ func (video *Video) Validate() error {
 
 	return nil
 }
+
+func (video Video) FileName() string {
+	return video.ID + ".mp4"
+}
