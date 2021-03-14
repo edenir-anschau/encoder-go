@@ -60,7 +60,7 @@ func (vu *VideoUpload) ProcessUpload(concurrency int, doneUpload chan string) er
 	uploader := s3manager.NewUploader(getSession())
 	for process := 0; process < concurrency; process++ {
 		go vu.uploadWorker(in, returnChannel, uploader, process)
-		log.Printf("Workder %d has started", process)
+		log.Printf("Worker %d has started", process)
 	}
 
 	go func() {
