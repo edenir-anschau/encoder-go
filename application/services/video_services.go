@@ -2,13 +2,15 @@ package services
 
 import (
 	"encoder/domain"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
-)
 
-var localStoragePath string = os.Getenv("localStoragePath")
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+)
 
 type VideoService struct {
 	Video *domain.Video
@@ -19,18 +21,20 @@ func NewVideoService() VideoService {
 }
 
 func (v *VideoService) Download(bucketName string) error {
-	content, err := ioutil.ReadFile(os.Getenv("localStoragePath") + "/" + bucketName + "/" + v.Video.FilePath)
+	localFile := os.Getenv("localStoragePath") + "/" + v.Video.ID + ".mp4"
+	f, err := os.Create(localFile)
 	if err != nil {
+		log.Fatal("Couldn't create file: ", f)
 		return err
 	}
 
-	f, err := os.Create(localStoragePath + "/" + v.Video.ID + ".mp4")
+	downloader := s3manager.NewDownloader(sessionS3())
+	_, err = downloader.Download(f, &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(v.Video.FilePath),
+	})
 	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(content)
-	if err != nil {
+		log.Println("Couldn't download file: ", v.Video.FilePath)
 		return err
 	}
 	defer f.Close()
@@ -40,13 +44,13 @@ func (v *VideoService) Download(bucketName string) error {
 }
 
 func (v *VideoService) Fragment() error {
-	err := os.Mkdir(localStoragePath+"/"+v.Video.ID, os.ModePerm)
+	err := os.Mkdir(os.Getenv("localStoragePath")+"/"+v.Video.ID, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	source := localStoragePath + "/" + v.Video.ID + ".mp4"
-	target := localStoragePath + "/" + v.Video.ID + ".frag"
+	source := os.Getenv("localStoragePath") + "/" + v.Video.ID + ".mp4"
+	target := os.Getenv("localStoragePath") + "/" + v.Video.ID + ".frag"
 
 	cmd := exec.Command("mp4fragment", source, target)
 	output, err := cmd.CombinedOutput()
@@ -59,10 +63,10 @@ func (v *VideoService) Fragment() error {
 
 func (v *VideoService) Encode() error {
 	cmdArgs := []string{}
-	cmdArgs = append(cmdArgs, localStoragePath+"/"+v.Video.ID+".frag")
+	cmdArgs = append(cmdArgs, os.Getenv("localStoragePath")+"/"+v.Video.ID+".frag")
 	cmdArgs = append(cmdArgs, "--use-segment-timeline")
 	cmdArgs = append(cmdArgs, "-o")
-	cmdArgs = append(cmdArgs, localStoragePath+"/"+v.Video.ID)
+	cmdArgs = append(cmdArgs, os.Getenv("localStoragePath")+"/"+v.Video.ID)
 	cmdArgs = append(cmdArgs, "-f")
 	cmdArgs = append(cmdArgs, "--exec-dir")
 	cmdArgs = append(cmdArgs, "/opt/bento4/bin/")
@@ -80,26 +84,37 @@ func (v *VideoService) Encode() error {
 }
 
 func (v *VideoService) Finish() error {
-	err := os.Remove(localStoragePath + "/" + v.Video.ID + ".mp4")
+	err := os.Remove(os.Getenv("localStoragePath") + "/" + v.Video.ID + ".mp4")
 	if err != nil {
 		log.Println("error removing mp4", v.Video.ID, ".mp4")
 		return err
 	}
 	log.Println("file has been removed", v.Video.ID, ".mp4")
 
-	err = os.Remove(localStoragePath + "/" + v.Video.ID + ".frag")
+	err = os.Remove(os.Getenv("localStoragePath") + "/" + v.Video.ID + ".frag")
 	if err != nil {
 		log.Println("error removing frag", v.Video.ID, ".frag")
 		return err
 	}
 	log.Println("file has been removed", v.Video.ID, ".frag")
 
-	err = os.RemoveAll(localStoragePath + "/" + v.Video.ID)
+	err = os.RemoveAll(os.Getenv("localStoragePath") + "/" + v.Video.ID)
 	if err != nil {
 		return err
 	}
 	log.Println("files has been removed: ", v.Video.ID)
 	return nil
+}
+
+func sessionS3() *session.Session {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-1")},
+	)
+	if err != nil {
+		log.Fatal("Error to create session", err)
+	}
+
+	return sess
 }
 
 func printOutput(out []byte) {

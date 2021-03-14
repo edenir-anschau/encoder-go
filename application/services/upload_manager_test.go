@@ -4,6 +4,7 @@ import (
 	"encoder/application/services"
 	"encoder/domain"
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -15,12 +16,11 @@ import (
 func init() {
 	err := godotenv.Load("../../.env")
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatalf("Error loading .env file")
 	}
-
 }
 
-func TestVideoServiceDownload(t *testing.T) {
+func TestVideoServiceUpload(t *testing.T) {
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()
 	video.FilePath = "hello-world-golang.mp4"
@@ -37,6 +37,16 @@ func TestVideoServiceDownload(t *testing.T) {
 
 	err = videoService.Encode()
 	require.Nil(t, err)
+
+	videoUpload := services.NewVideoUpload()
+	videoUpload.OutputBucket = "codeflix-encoder-output"
+	videoUpload.VideoPath = os.Getenv("localStoragePath") + "/" + video.ID
+
+	doneUpload := make(chan string)
+	go videoUpload.ProcessUpload(50, doneUpload)
+
+	result := <-doneUpload
+	require.Equal(t, result, "upload completed")
 
 	err = videoService.Finish()
 	require.Nil(t, err)
