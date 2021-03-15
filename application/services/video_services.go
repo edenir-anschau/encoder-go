@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoder/application/repositories"
 	"encoder/domain"
 	"log"
 	"os"
@@ -13,7 +14,8 @@ import (
 )
 
 type VideoService struct {
-	Video *domain.Video
+	Video           *domain.Video
+	VideoRepository repositories.VideoRepository
 }
 
 func NewVideoService() VideoService {
