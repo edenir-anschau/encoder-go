@@ -4,6 +4,7 @@ import (
 	"encoder/domain"
 	"encoder/framework/utils"
 	"encoding/json"
+	"log"
 	"os"
 	"time"
 
@@ -18,27 +19,30 @@ type JobWorkerResult struct {
 }
 
 func JobWorker(messageChannel chan amqp.Delivery, returnChan chan JobWorkerResult, jobService JobService, job domain.Job, workerID int) {
+	log.Print("Starting workderID ", workerID)
 	for message := range messageChannel {
-		err := utils.IsJson(string(message.Body))
+		err := utils.IsJson(message.Body)
 		if err != nil {
+			log.Fatalf("Invalid JSON %v", err)
 			returnChan <- returnJobResult(domain.Job{}, message, err)
 			continue
 		}
 
 		err = json.Unmarshal(message.Body, &jobService.VideoService.Video)
-		jobService.VideoService.Video.ID = uuid.NewV4().String()
 		if err != nil {
+			log.Printf("Error to unmarshal JSON %v", err)
 			returnChan <- returnJobResult(domain.Job{}, message, err)
 			continue
 		}
-
+		jobService.VideoService.Video.ID = uuid.NewV4().String()
 		err = jobService.VideoService.Video.Validate()
 		if err != nil {
+			log.Printf("Invalid video %v", err)
 			returnChan <- returnJobResult(domain.Job{}, message, err)
 			continue
 		}
 
-		_, err = jobService.JobRepository.Insert(&job)
+		err = jobService.VideoService.Insert()
 		if err != nil {
 			returnChan <- returnJobResult(domain.Job{}, message, err)
 			continue
@@ -68,7 +72,6 @@ func JobWorker(messageChannel chan amqp.Delivery, returnChan chan JobWorkerResul
 		returnChan <- returnJobResult(job, message, nil)
 	}
 }
-
 
 func returnJobResult(job domain.Job, message amqp.Delivery, err error) JobWorkerResult {
 	result := JobWorkerResult{

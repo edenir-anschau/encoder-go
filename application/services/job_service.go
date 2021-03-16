@@ -4,6 +4,7 @@ import (
 	"encoder/application/repositories"
 	"encoder/domain"
 	"errors"
+	"log"
 	"os"
 	"strconv"
 )
@@ -20,6 +21,7 @@ func (j *JobService) Start() error {
 		return j.failJob(err)
 	}
 
+	log.Printf("Download started")
 	err = j.VideoService.Download(os.Getenv("inputBucketName"))
 	if err != nil {
 		return j.failJob(err)
@@ -29,17 +31,23 @@ func (j *JobService) Start() error {
 	if err != nil {
 		return j.failJob(err)
 	}
+	log.Printf("Fragment started")
+	err = j.VideoService.Fragment()
+	if err != nil {
+		return j.failJob(err)
+	}
 
 	err = j.changeJobStatus("ENCODING")
 	if err != nil {
 		return j.failJob(err)
 	}
-
+	log.Printf("Encode started")
 	err = j.VideoService.Encode()
 	if err != nil {
 		return j.failJob(err)
 	}
 
+	log.Printf("Upload started")
 	err = j.performUpload()
 	if err != nil {
 		return j.failJob(err)
@@ -54,6 +62,7 @@ func (j *JobService) Start() error {
 	if err != nil {
 		return j.failJob(err)
 	}
+	log.Printf("Job finished")
 
 	err = j.changeJobStatus("COMPLETED")
 	if err != nil {
@@ -100,6 +109,7 @@ func (j *JobService) changeJobStatus(status string) error {
 }
 
 func (j *JobService) failJob(error error) error {
+	log.Fatalf("Job %v has failed", j.Job)
 	j.Job.Status = "FAILED"
 	j.Job.Error = error.Error()
 

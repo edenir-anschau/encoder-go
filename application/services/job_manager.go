@@ -51,11 +51,12 @@ func (j *JobManager) Start(ch *amqp.Channel) {
 	}
 
 	concurrency, err := strconv.Atoi(os.Getenv("CONCURRENCY_WORKERS"))
+	log.Println("CONCURRENCY_WORKERS", concurrency)
 	if err != nil {
 		log.Fatalf("error loading var: CONCURRENCY_WORKERSS")
 	}
 
-	for qtdProcesses := 0; qtdProcesses < concurrency; concurrency++ {
+	for qtdProcesses := 0; qtdProcesses < concurrency; qtdProcesses++ {
 		go JobWorker(j.MessageChannel, j.JobReturnChannel, jobService, j.Domain, qtdProcesses)
 	}
 

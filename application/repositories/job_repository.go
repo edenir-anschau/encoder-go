@@ -3,6 +3,7 @@ package repositories
 import (
 	"encoder/domain"
 	"fmt"
+	"log"
 
 	"github.com/jinzhu/gorm"
 )
@@ -21,6 +22,7 @@ func (repo JobRepositoryDb) Insert(job *domain.Job) (*domain.Job, error) {
 
 	err := repo.Db.Create(job).Error
 	if err != nil {
+		log.Printf("Error to insert job %v, %v", job, err)
 		return nil, err
 	}
 

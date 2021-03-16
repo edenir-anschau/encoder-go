@@ -108,6 +108,16 @@ func (v *VideoService) Finish() error {
 	return nil
 }
 
+func (v *VideoService) Insert() error {
+	_, err := v.VideoRepository.Insert(v.Video)
+	if err != nil {
+		log.Printf("Error to insert video %v - %v", v.Video, err)
+		return err
+	}
+
+	return nil
+}
+
 func sessionS3() *session.Session {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1")},
